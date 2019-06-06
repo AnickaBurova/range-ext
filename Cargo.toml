@@ -1,6 +1,6 @@
 [package]
 name = "range-ext"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["anicka.burova@gmail.com"]
 edition = "2018"
 description = "Range intersection"
@@ -10,4 +10,3 @@ repository = "https://github.com/AnickaBurova/range-ext"
 keywords = ["range", "intersect", "intersection"]
 
 [dependencies]
-#num = "*"

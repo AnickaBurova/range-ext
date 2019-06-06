@@ -1,34 +1,9 @@
 use std::cmp::PartialOrd;
 use std::ops::*;
 
-/// Intersection of two ranges from point of the first range
-#[derive(Debug)]
-pub enum Intersection {
-    /// They have no common area
-    Empty,
-    /// They partially overlap
-    Overlap,
-    /// One is fully within the other
-    Full,
-}
-
-impl Intersection {
-    /// Test if there is any intersection
-    /// '''
-    ///     Intersection::Empty => false,
-    ///     Intersection::Overlap => true,
-    ///     Intersection::Full => true,
-    pub fn is_any(&self) -> bool {
-        match self {
-            Intersection::Empty => false,
-            _ => true,
-        }
-    }
-}
-
 /// More precise intersection of two ranges from point of the first range
 #[derive(Debug, PartialEq)]
-pub enum IntersectionExt {
+pub enum Intersection {
     /// The self is below the other
     Bellow,
     /// The self is below but overlaping
@@ -45,31 +20,27 @@ pub enum IntersectionExt {
     Above,
 }
 
-impl IntersectionExt {
-    /// Get simpler intersection
-    pub fn intersection(&self) -> Intersection {
-        match self {
-            IntersectionExt::Bellow => Intersection::Empty,
-            IntersectionExt::BellowOverlap => Intersection::Overlap,
-            IntersectionExt::Within => Intersection::Full,
-            IntersectionExt::Same => Intersection::Full,
-            IntersectionExt::Over => Intersection::Full,
-            IntersectionExt::AboveOverlap => Intersection::Overlap,
-            IntersectionExt::Above => Intersection::Empty,
-        }
-    }
+impl Intersection {
     /// Test if there is any intersection
     pub fn is_any(&self) -> bool {
         match self {
-            IntersectionExt::Bellow => false,
-            IntersectionExt::Above => false,
+            Intersection::Bellow => false,
+            Intersection::Above => false,
             _ => true,
         }
     }
     /// Test if the range is fully within the other
     pub fn is_within(&self) -> bool {
         match self {
-            IntersectionExt::Within | IntersectionExt::Same => true,
+            Intersection::Within | Intersection::Same => true,
+            _ => false,
+        }
+    }
+
+    /// Test if the range is fully over the other
+    pub fn is_over(&self) -> bool {
+        match self {
+            Intersection::Over | Intersection::Same => true,
             _ => false,
         }
     }
@@ -77,65 +48,65 @@ impl IntersectionExt {
 
 pub trait Intersect<T: PartialOrd, U: RangeBounds<T>>: RangeBounds<T> {
     /// Test two ranges for an intersection
-    fn intersect(&self, other: &U) -> IntersectionExt;
+    fn intersect(&self, other: &U) -> Intersection;
 }
 
 impl<T: PartialOrd> Intersect<T, Range<T>> for Range<T> {
-    fn intersect(&self, other: &Range<T>) -> IntersectionExt {
+    fn intersect(&self, other: &Range<T>) -> Intersection {
         if self.end == other.end {
             if self.start < other.start {
-                IntersectionExt::Over
+                Intersection::Over
             } else if self.start > other.start {
-                IntersectionExt::Within
+                Intersection::Within
             } else {
-                IntersectionExt::Same
+                Intersection::Same
             }
         } else if self.end < other.end {
             if self.end <= other.start {
-                IntersectionExt::Bellow
+                Intersection::Bellow
             } else if self.start < other.start {
-                IntersectionExt::BellowOverlap
+                Intersection::BellowOverlap
             } else {
-                IntersectionExt::Within
+                Intersection::Within
             }
         } else if self.start < other.end {
             if self.start <= other.start {
-                IntersectionExt::Over
+                Intersection::Over
             } else {
-                IntersectionExt::AboveOverlap
+                Intersection::AboveOverlap
             }
         } else {
-            IntersectionExt::Above
+            Intersection::Above
         }
     }
 }
 
 impl<T: PartialOrd> Intersect<T, RangeFrom<T>> for Range<T> {
-    fn intersect(&self, other: &RangeFrom<T>) -> IntersectionExt {
+    fn intersect(&self, other: &RangeFrom<T>) -> Intersection {
         if self.end <= other.start {
-            IntersectionExt::Bellow
+            Intersection::Bellow
         } else if self.start < other.start {
-            IntersectionExt::BellowOverlap
+            Intersection::BellowOverlap
         } else {
-            IntersectionExt::Within
+            Intersection::Within
         }
     }
 }
 
 impl<T: PartialOrd> Intersect<T, RangeFull> for Range<T> {
-    fn intersect(&self, _: &RangeFull) -> IntersectionExt {
-        IntersectionExt::Within
+    fn intersect(&self, _: &RangeFull) -> Intersection {
+        Intersection::Same
     }
 }
 
 impl<T: PartialOrd> Intersect<T, RangeTo<T>> for Range<T> {
-    fn intersect(&self, other: &RangeTo<T>) -> IntersectionExt {
+    fn intersect(&self, other: &RangeTo<T>) -> Intersection {
         if self.start >= other.end {
-            IntersectionExt::Above
+            Intersection::Above
         } else if self.end > other.end {
-            IntersectionExt::AboveOverlap
+            Intersection::AboveOverlap
         } else {
-            IntersectionExt::Within
+            Intersection::Within
         }
     }
 }
@@ -145,33 +116,33 @@ impl<T: PartialOrd> Intersect<T, RangeTo<T>> for Range<T> {
 use num::Integer;
 
 impl<T: PartialOrd + Copy + Integer> Intersect<T, RangeInclusive<T>> for Range<T> {
-    fn intersect(&self, other: &RangeInclusive<T>) -> IntersectionExt {
+    fn intersect(&self, other: &RangeInclusive<T>) -> Intersection {
         let (a_start, a_end) = (self.start, self.end - T::one());
         let (b_start, b_end) = (*other.start(), *other.end());
         if a_end == b_end {
             if a_start < b_start {
-                IntersectionExt::Over
+                Intersection::Over
             } else if a_start > b_start {
-                IntersectionExt::Within
+                Intersection::Within
             } else {
-                IntersectionExt::Same
+                Intersection::Same
             }
         } else if a_end < b_end {
             if a_end <= b_start {
-                IntersectionExt::Bellow
+                Intersection::Bellow
             } else if a_start < b_start {
-                IntersectionExt::BellowOverlap
+                Intersection::BellowOverlap
             } else {
-                IntersectionExt::Within
+                Intersection::Within
             }
         } else if a_start < b_end {
             if a_start <= b_start {
-                IntersectionExt::Over
+                Intersection::Over
             } else {
-                IntersectionExt::AboveOverlap
+                Intersection::AboveOverlap
             }
         } else {
-            IntersectionExt::Above
+            Intersection::Above
         }
     }
 }
@@ -183,32 +154,32 @@ mod test {
 
     macro_rules! test {
         ($a: expr) => {
-            assert_eq!($a.intersect(&(11..11)), IntersectionExt::Bellow);
-            assert_eq!($a.intersect(&(10..11)), IntersectionExt::Bellow);
-            assert_eq!($a.intersect(&(9..11)), IntersectionExt::BellowOverlap);
-            assert_eq!($a.intersect(&(9..10)), IntersectionExt::Over);
-            assert_eq!($a.intersect(&(3..10)), IntersectionExt::Same);
-            assert_eq!($a.intersect(&(5..9)), IntersectionExt::Over);
-            assert_eq!($a.intersect(&(3..9)), IntersectionExt::Over);
-            assert_eq!($a.intersect(&(2..11)), IntersectionExt::Within);
-            assert_eq!($a.intersect(&(3..11)), IntersectionExt::Within);
-            assert_eq!($a.intersect(&(2..9)), IntersectionExt::AboveOverlap);
-            assert_eq!($a.intersect(&(2..3)), IntersectionExt::Above);
-            assert_eq!($a.intersect(&(1..2)), IntersectionExt::Above);
+            assert_eq!($a.intersect(&(11..11)), Intersection::Bellow);
+            assert_eq!($a.intersect(&(10..11)), Intersection::Bellow);
+            assert_eq!($a.intersect(&(9..11)), Intersection::BellowOverlap);
+            assert_eq!($a.intersect(&(9..10)), Intersection::Over);
+            assert_eq!($a.intersect(&(3..10)), Intersection::Same);
+            assert_eq!($a.intersect(&(5..9)), Intersection::Over);
+            assert_eq!($a.intersect(&(3..9)), Intersection::Over);
+            assert_eq!($a.intersect(&(2..11)), Intersection::Within);
+            assert_eq!($a.intersect(&(3..11)), Intersection::Within);
+            assert_eq!($a.intersect(&(2..9)), Intersection::AboveOverlap);
+            assert_eq!($a.intersect(&(2..3)), Intersection::Above);
+            assert_eq!($a.intersect(&(1..2)), Intersection::Above);
 
-            assert_eq!($a.intersect(&(11..)), IntersectionExt::Bellow);
-            assert_eq!($a.intersect(&(10..)), IntersectionExt::Bellow);
-            assert_eq!($a.intersect(&(9..)), IntersectionExt::BellowOverlap);
-            assert_eq!($a.intersect(&(3..)), IntersectionExt::Within);
-            assert_eq!($a.intersect(&(2..)), IntersectionExt::Within);
+            assert_eq!($a.intersect(&(11..)), Intersection::Bellow);
+            assert_eq!($a.intersect(&(10..)), Intersection::Bellow);
+            assert_eq!($a.intersect(&(9..)), Intersection::BellowOverlap);
+            assert_eq!($a.intersect(&(3..)), Intersection::Within);
+            assert_eq!($a.intersect(&(2..)), Intersection::Within);
 
-            assert_eq!($a.intersect(&(..)), IntersectionExt::Within);
+            assert_eq!($a.intersect(&(..)), Intersection::Within);
 
-            assert_eq!($a.intersect(&(..11)), IntersectionExt::Within);
-            assert_eq!($a.intersect(&(..10)), IntersectionExt::Within);
-            assert_eq!($a.intersect(&(..9)), IntersectionExt::AboveOverlap);
-            assert_eq!($a.intersect(&(..3)), IntersectionExt::Above);
-            assert_eq!($a.intersect(&(..2)), IntersectionExt::Above);
+            assert_eq!($a.intersect(&(..11)), Intersection::Within);
+            assert_eq!($a.intersect(&(..10)), Intersection::Within);
+            assert_eq!($a.intersect(&(..9)), Intersection::AboveOverlap);
+            assert_eq!($a.intersect(&(..3)), Intersection::Above);
+            assert_eq!($a.intersect(&(..2)), Intersection::Above);
         };
     }
     #[test]
@@ -216,13 +187,13 @@ mod test {
         test!(3..10);
 
         match (10..22).intersect(&(0..11)) {
-            IntersectionExt::Bellow => (),
-            IntersectionExt::BellowOverlap => (),
-            IntersectionExt::Within => (),
-            IntersectionExt::Same => (),
-            IntersectionExt::Over => (),
-            IntersectionExt::AboveOverlap => (),
-            IntersectionExt::Above => (),
+            Intersection::Bellow => (),
+            Intersection::BellowOverlap => (),
+            Intersection::Within => (),
+            Intersection::Same => (),
+            Intersection::Over => (),
+            Intersection::AboveOverlap => (),
+            Intersection::Above => (),
         }
     }
 }
