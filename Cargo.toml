@@ -1,0 +1,8 @@
+[package]
+name = "range-ext"
+version = "0.1.0"
+authors = ["anicka.burova@gmail.com"]
+edition = "2018"
+
+[dependencies]
+#num = "*"
