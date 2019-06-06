@@ -1,11 +1,10 @@
 [package]
 name = "range-ext"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["anicka.burova@gmail.com"]
 edition = "2018"
 description = "Range intersection"
 license = "MIT"
-documentation = "https://docs.rs/range-ext/0.1.1/range_ext/index.html"
 homepage = "https://github.com/AnickaBurova/range-ext"
 repository = "https://github.com/AnickaBurova/range-ext"
 keywords = ["range", "intersect", "intersection"]

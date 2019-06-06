@@ -66,6 +66,13 @@ impl IntersectionExt {
             _ => true,
         }
     }
+    /// Test if the range is fully within the other
+    pub fn is_within(&self) -> bool {
+        match self {
+            IntersectionExt::Within | IntersectionExt::Same => true,
+            _ => false,
+        }
+    }
 }
 
 pub trait Intersect<T: PartialOrd, U: RangeBounds<T>>: RangeBounds<T> {
