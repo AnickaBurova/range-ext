@@ -1,2 +1,2 @@
 //! Intersection trait for ranges.
-mod intersect;
+pub mod intersect;
