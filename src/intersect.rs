@@ -95,7 +95,7 @@ impl<T: PartialOrd> Intersect<T, RangeFrom<T>> for Range<T> {
 
 impl<T: PartialOrd> Intersect<T, RangeFull> for Range<T> {
     fn intersect(&self, _: &RangeFull) -> Intersection {
-        Intersection::Same
+        Intersection::Within
     }
 }
 
