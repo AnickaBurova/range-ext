@@ -238,7 +238,7 @@ impl<T: PartialOrd> Intersect<T, RangeFull> for Range<T> {
         }
     }
 
-    fn does_intersect(&self, other: &RangeFull) -> bool {
+    fn does_intersect(&self, _: &RangeFull) -> bool {
         if self.start == self.end {
             false
         } else {
