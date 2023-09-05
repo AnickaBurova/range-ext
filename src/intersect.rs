@@ -110,37 +110,48 @@ macro_rules! empty_and_reverse {
     }
 }
 
+fn do_intersect_ext<T: PartialOrd>(a: &T, b: &T, x: &T, y: &T) -> IntersectionExt {
+    if b == y {
+        if a < x {
+            IntersectionExt::Over
+        } else if a > x {
+            IntersectionExt::Within
+        } else {
+            IntersectionExt::Same
+        }
+    } else if b < y {
+        if b <= x {
+            IntersectionExt::Less
+        } else if a < x {
+            IntersectionExt::LessOverlap
+        } else {
+            IntersectionExt::Within
+        }
+    } else if a < y {
+        if a <= x {
+            IntersectionExt::Over
+        } else {
+            IntersectionExt::GreaterOverlap
+        }
+    } else {
+        IntersectionExt::Greater
+    }
+}
 
 impl<T: PartialOrd + Copy> Intersect<T, Range<T>> for Range<T> {
     /// Determines and returns the IntersectionExt between two ranges.
     fn intersect_ext(&self, other: &Range<T>) -> IntersectionExt {
-        empty_and_reverse!(self, other, intersect_ext, IntersectionExt::Empty);
-
-        if self.end == other.end {
-            if self.start < other.start {
-                IntersectionExt::Over
-            } else if self.start > other.start {
-                IntersectionExt::Within
-            } else {
-                IntersectionExt::Same
-            }
-        } else if self.end < other.end {
-            if self.end <= other.start {
-                IntersectionExt::Less
-            } else if self.start < other.start {
-                IntersectionExt::LessOverlap
-            } else {
-                IntersectionExt::Within
-            }
-        } else if self.start < other.end {
-            if self.start <= other.start {
-                IntersectionExt::Over
-            } else {
-                IntersectionExt::GreaterOverlap
-            }
-        } else {
-            IntersectionExt::Greater
-        }
+        let (a, b) = match self.start.partial_cmp(&self.end) {
+            None | Some(Ordering::Equal) => return IntersectionExt::Empty,
+            Some(Ordering::Less) => (&self.start, &self.end),
+            Some(Ordering::Greater) => (&self.end, &self.start),
+        };
+        let (x, y) = match other.start.partial_cmp(&other.end) {
+            None | Some(Ordering::Equal) => return IntersectionExt::Empty,
+            Some(Ordering::Less) => (&other.start, &other.end),
+            Some(Ordering::Greater) => (&other.end, &other.start),
+        };
+        do_intersect_ext(a, b, x, y)
     }
 
     fn intersect(&self, other: &Range<T>) -> Intersection {
@@ -282,6 +293,96 @@ impl<T: PartialOrd + Copy> Intersect<T, RangeTo<T>> for Range<T> {
         }
     }
 }
+
+macro_rules! test_if_reverse {
+    ($a: expr, $b: expr, $x: expr, $y: expr, $empty: expr) => {{
+        let (a, b) = match $a.partial_cmp($b) {
+            None => return $empty,
+            Some(Ordering::Less) | Some(Ordering::Equal) => ($a, $b),
+            Some(Ordering::Greater) => ($b, $a),
+        };
+        let (x, y) = match $x.partial_cmp($y) {
+            None  => return $empty,
+            Some(Ordering::Less) | Some(Ordering::Equal) => ($x, $y),
+            Some(Ordering::Greater) => ($y, $x),
+        };
+        (a, b, x, y)
+    } }
+}
+
+macro_rules! try_unwrap {
+    ($a: expr, $or: expr) => {
+        match $a {
+            Some(a) => a,
+            None => return $or,
+        }
+    }
+}
+impl<T: PartialOrd + Copy> Intersect<T, RangeInclusive<T>> for RangeInclusive<T> {
+    fn intersect_ext(&self, other: &RangeInclusive<T>) -> IntersectionExt {
+        // no empty ranges as these are inclusive
+        let (a, b, x, y) = test_if_reverse!(self.start(), self.end(), other.start(), other.end(), IntersectionExt::Empty);
+        if b == y {
+            if a < x {
+                IntersectionExt::Over
+            } else if a > x {
+                IntersectionExt::Within
+            } else {
+                IntersectionExt::Same
+            }
+        } else if a == y {
+            IntersectionExt::GreaterOverlap
+        } else if b < y {
+            if b < x {
+                IntersectionExt::Less
+            } else if a < x {
+                IntersectionExt::LessOverlap
+            } else {
+                IntersectionExt::Within
+            }
+        } else if a < y {
+            if a <= x {
+                IntersectionExt::Over
+            } else {
+                IntersectionExt::GreaterOverlap
+            }
+        } else {
+            IntersectionExt::Greater
+        }
+    }
+
+    fn intersect(&self, other: &RangeInclusive<T>) -> Intersection {
+        // no empty ranges as these are inclusive
+        let (a, b, x, y) = test_if_reverse!(self.start(), self.end(), other.start(), other.end(), Intersection::Empty);
+        let ax = try_unwrap!(a.partial_cmp(&x), Intersection::Empty);
+        let by = try_unwrap!(b.partial_cmp(&y), Intersection::Empty);
+        let ay = try_unwrap!(a.partial_cmp(&y), Intersection::Empty);
+        let bx = try_unwrap!(b.partial_cmp(&x), Intersection::Empty);
+
+        match (ax, ay, bx, by) {
+            (_, Ordering::Greater, _ , _) => Intersection::Empty,
+            (_, _, Ordering::Less, _) => Intersection::Empty,
+            (Ordering::Equal, _,_,_) => Intersection::Full,
+            (_, _, _, Ordering::Equal) => Intersection::Full,
+            (Ordering::Less, _,_,Ordering::Greater) => Intersection::Full,
+            (Ordering::Greater, _, _, Ordering::Less) => Intersection::Full,
+            _ => Intersection::Overlap,
+        }
+    }
+
+    fn does_intersect(&self, other: &RangeInclusive<T>) -> bool {
+        let (a, b, x, y) = test_if_reverse!(self.start(), self.end(), other.start(), other.end(), false);
+        let ay = try_unwrap!(a.partial_cmp(&y), false);
+        let bx = try_unwrap!(b.partial_cmp(&x), false);
+
+        match (ay, bx) {
+            (Ordering::Greater, _) => false,
+            (_, Ordering::Less) => false,
+            _ => true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,11 +390,11 @@ mod tests {
     #[test]
     fn range_intersect() {
         // Overlapping cases
-        assert_eq!((5..10).intersect_ext(&(3..7)), IntersectionExt::GreaterOverlap); // Corrected
+        assert_eq!((5..10).intersect_ext(&(3..7)), IntersectionExt::GreaterOverlap);
         assert_eq!((5..10).intersect_ext(&(8..15)), IntersectionExt::LessOverlap);
-        assert_eq!((10..5).intersect_ext(&(3..7)), IntersectionExt::GreaterOverlap); // Corrected
+        assert_eq!((10..5).intersect_ext(&(3..7)), IntersectionExt::GreaterOverlap);
         assert_eq!((10..5).intersect_ext(&(8..15)), IntersectionExt::LessOverlap);
-        assert_eq!((10..5).intersect_ext(&(7..3)), IntersectionExt::GreaterOverlap); // Corrected
+        assert_eq!((10..5).intersect_ext(&(7..3)), IntersectionExt::GreaterOverlap);
         assert_eq!((10..5).intersect_ext(&(15..8)), IntersectionExt::LessOverlap);
 
         // Complete overlap/within
@@ -443,5 +544,38 @@ mod tests {
         assert_eq!(IntersectionExt::Over.is_within(), false);
         assert_eq!(IntersectionExt::GreaterOverlap.is_within(), false);
         assert_eq!(IntersectionExt::Greater.is_within(), false);
+    }
+
+    #[test]
+    fn range_inclusive_test() {
+        assert_eq!((10..=1).intersect_ext(&(15..=1)), IntersectionExt::Within);
+        assert_eq!((10..=1).intersect_ext(&(10..=1)), IntersectionExt::Same);
+        assert_eq!((10..=1).intersect_ext(&(9..=1)), IntersectionExt::Over);
+        assert_eq!((10..=1).intersect_ext(&(10..=9)), IntersectionExt::Over);
+        assert_eq!((10..=1).intersect_ext(&(10..=0)), IntersectionExt::Within);
+        assert_eq!((10..=1).intersect_ext(&(1..=0)), IntersectionExt::GreaterOverlap);
+        assert_eq!((10..=1).intersect_ext(&(0..=-1)), IntersectionExt::Greater);
+        assert_eq!((10..=1).intersect_ext(&(11..=10)), IntersectionExt::LessOverlap);
+        assert_eq!((10..=1).intersect_ext(&(12..=11)), IntersectionExt::Less);
+
+        assert_eq!((10..=1).intersect(&(15..=1)), Intersection::Full);
+        assert_eq!((10..=1).intersect(&(10..=1)), Intersection::Full);
+        assert_eq!((10..=1).intersect(&(9..=1)), Intersection::Full);
+        assert_eq!((10..=1).intersect(&(10..=9)), Intersection::Full);
+        assert_eq!((10..=1).intersect(&(10..=0)), Intersection::Full);
+        assert_eq!((10..=1).intersect(&(1..=0)), Intersection::Overlap);
+        assert_eq!((10..=1).intersect(&(0..=-1)), Intersection::Empty);
+        assert_eq!((10..=1).intersect(&(11..=10)), Intersection::Overlap);
+        assert_eq!((10..=1).intersect(&(12..=11)), Intersection::Empty);
+
+        assert_eq!((10..=1).does_intersect(&(15..=1)), true);
+        assert_eq!((10..=1).does_intersect(&(10..=1)), true);
+        assert_eq!((10..=1).does_intersect(&(9..=1)), true);
+        assert_eq!((10..=1).does_intersect(&(10..=9)), true);
+        assert_eq!((10..=1).does_intersect(&(10..=0)), true);
+        assert_eq!((10..=1).does_intersect(&(1..=0)), true);
+        assert_eq!((10..=1).does_intersect(&(0..=-1)), false);
+        assert_eq!((10..=1).does_intersect(&(11..=10)), true);
+        assert_eq!((10..=1).does_intersect(&(12..=11)), false);
     }
 }

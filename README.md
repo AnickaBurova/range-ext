@@ -20,7 +20,7 @@ let range2 = 5..8;
 
 let intersection = range1.intersect(&range2);
 ```
-
+Issue: I think there is a problem with intersecting Range, if either of the ranges have no ascending start to end. To make it work I have assumed I can reverse if they are descending, but that is causing the other to becaome RangeToInclusive, and that is not yet implemented. So dont have any descending ranges for now.
 
 TODO:
-There is still missing RangeInclusive and RangeToInclusive at the moment.
+There is still missing RangeToInclusive at the moment.
