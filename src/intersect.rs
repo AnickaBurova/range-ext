@@ -310,14 +310,6 @@ macro_rules! test_if_reverse {
     } }
 }
 
-macro_rules! try_unwrap {
-    ($a: expr, $or: expr) => {
-        match $a {
-            Some(a) => a,
-            None => return $or,
-        }
-    }
-}
 impl<T: PartialOrd + Copy> Intersect<T, RangeInclusive<T>> for RangeInclusive<T> {
     fn intersect_ext(&self, other: &RangeInclusive<T>) -> IntersectionExt {
         // no empty ranges as these are inclusive
