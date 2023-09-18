@@ -39,7 +39,7 @@ macro_rules! r {
 /// This has more case than standard std::ops ranges offer,
 /// as here we can have Excluded start, which in std::ops is reversed to Included for example.
 /// It returns correctly reverse of the range, unless the range is unbounded, than the reverse is not applicable
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct RangeInterval<T> {
     /// if the interval is reverse
     /// for the simplicity of calculations the start will always be less or equal than the end
@@ -48,7 +48,7 @@ pub struct RangeInterval<T> {
     pub end: Bound<T>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum RangeType {
     /// This represent a range which is not inclusive on the end, and is supported by rust standard library.
     Range,
