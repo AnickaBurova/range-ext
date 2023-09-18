@@ -1,5 +1,6 @@
 //! Unified structure for representing ranges and intervals.
 
+use std::fmt::{Display, Formatter};
 use std::ops::{Bound, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
 #[macro_export]
@@ -47,6 +48,47 @@ pub struct RangeInterval<T> {
     pub start: Bound<T>,
     pub end: Bound<T>,
 }
+
+pub trait DisplayExt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result;
+}
+
+impl<T: DisplayExt> Display for RangeInterval<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match if self.reverse { &self.end } else { &self.start } {
+            Bound::Included(v) => {write!(f, "<")?; v.fmt(f)?;}
+            Bound::Excluded(v) => {write!(f, "(")?; v.fmt(f)?;}
+            Bound::Unbounded => {}
+        }
+        write!(f, "..")?;
+
+        match if self.reverse { &self.start } else { &self.end } {
+            Bound::Included(v) => { v.fmt(f)?;write!(f, ">")?;}
+            Bound::Excluded(v) => { v.fmt(f)?;write!(f, ")")?;}
+            Bound::Unbounded => {}
+        }
+        Ok(())
+    }
+}
+
+impl<T: Copy> RangeInterval<T> {
+    pub fn display<D: DisplayExt + From<T>>(self) -> RangeInterval<D> {
+        RangeInterval {
+            reverse: self.reverse,
+            start: match &self.start {
+                Bound::Included(v) => Bound::Included(D::from(*v)),
+                Bound::Excluded(v) => Bound::Excluded(D::from(*v)),
+                Bound::Unbounded => Bound::Unbounded,
+            },
+            end: match &self.end {
+                Bound::Included(v) => Bound::Included(D::from(*v)),
+                Bound::Excluded(v) => Bound::Excluded(D::from(*v)),
+                Bound::Unbounded => Bound::Unbounded,
+            },
+        }
+    }
+}
+
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum RangeType {
