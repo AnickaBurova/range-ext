@@ -72,6 +72,20 @@ impl<T: DisplayExt> Display for RangeInterval<T> {
     }
 }
 
+fn into_bound<T, F: From<T>>(bound: Bound<T>) -> Bound<F> {
+    match bound {
+        Bound::Included(v) => Bound::Included(F::from(v)),
+        Bound::Excluded(v) => Bound::Excluded(F::from(v)),
+        Bound::Unbounded => Bound::Unbounded,
+    }
+}
+
+impl<T> RangeInterval<T> {
+    pub fn into<F: From<T>>(self) -> RangeInterval<F> {
+        RangeInterval { reverse: self.reverse, start: into_bound(self.start), end: into_bound(self.end) }
+    }
+}
+
 impl<T: Copy> RangeInterval<T> {
     pub fn display<D: DisplayExt + From<T>>(self) -> RangeInterval<D> {
         RangeInterval {
@@ -190,7 +204,7 @@ impl<T: PartialOrd + Clone> RangeInterval<T> {
                 if direction_end {
                     Some(end.clone())
                 } else {
-                    included(start, direction_end) 
+                    included(start, direction_end)
                 }
             } else {
                 Some(value)
@@ -535,7 +549,7 @@ mod tests {
         assert!(!r!(!10..1).contains(10));
         assert!(!r!(!10..1).contains(11));
     }
-    
+
     #[test]
     fn test_avoid() {
         assert_eq!(r!(..).avoid(15, true), None);
