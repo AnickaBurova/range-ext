@@ -2,6 +2,7 @@
 
 use std::fmt::{Display, Formatter};
 use std::ops::{Bound, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use crate::successor::Successor;
 
 #[macro_export]
 macro_rules! r {
@@ -108,6 +109,7 @@ pub enum RangeType {
     Other,
 }
 
+
 impl<T: PartialOrd> RangeInterval<T> {
     /// Test if a value is contained in the range
     pub fn contains(&self, value: T) -> bool {
@@ -124,6 +126,101 @@ impl<T: PartialOrd> RangeInterval<T> {
             // for example there is nothing between 1 and 2
             (Bound::Excluded(start), Bound::Excluded(end)) => *start < value && value < *end,
         }
+    }
+
+}
+
+impl<T: PartialOrd + Clone> RangeInterval<T> {
+    /// Test the value if it is contained in the range, and return a value which is outside. Choose the
+    /// direction to go either down or up. It requires a function to resolve `included` bounds, to calculate
+    /// "next" or "previous" values.
+    /// Return None if overflow occurs or the range is Full, or unbounded in the specified direction.
+    pub fn avoid_with(&self, value: T, direction_end: bool, included: impl Fn(&T, bool) -> Option<T>) -> Option<T> {
+        match (&self.start, &self.end) {
+            (Bound::Unbounded, Bound::Unbounded) => None, // nowhere to avoid
+            (Bound::Unbounded, Bound::Included(end)) => {
+                if value <= *end {
+                    // avoiding
+                    if direction_end {
+                        included(end, direction_end)
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(value)
+                }
+            },
+            (Bound::Unbounded, Bound::Excluded(end)) => if value < *end {
+                if direction_end {
+                    Some(end.clone())
+                } else {
+                    None
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Included(start), Bound::Unbounded) => if value >= *start {
+                if direction_end {
+                    None
+                } else {
+                    included(start, direction_end)
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Excluded(start), Bound::Unbounded) => if value > *start {
+                if direction_end {
+                    None
+                } else {
+                    Some(start.clone())
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Included(start), Bound::Included(end)) => if *start <= value && value <= *end {
+                if direction_end {
+                    included(end, direction_end)
+                } else {
+                    included(start, direction_end)
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Included(start), Bound::Excluded(end)) => if *start <= value && value < *end {
+                if direction_end {
+                    Some(end.clone())
+                } else {
+                    included(start, direction_end) 
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Excluded(start), Bound::Included(end)) => if *start < value && value <= *end {
+                if direction_end {
+                    included(end, direction_end)
+                } else {
+                    Some(start.clone())
+                }
+            } else {
+                Some(value)
+            }
+            (Bound::Excluded(start), Bound::Excluded(end)) => if *start < value && value < *end {
+                if direction_end {
+                    Some(end.clone())
+                } else {
+                    Some(start.clone())
+                }
+            } else {
+                Some(value)
+            }
+        }
+    }
+}
+
+
+impl<T: PartialOrd + Successor + Clone> RangeInterval<T> {
+    pub fn avoid(&self, value: T, direction_end: bool ) -> Option<T> {
+        self.avoid_with(value, direction_end, |v, dir| if dir { v.next() } else { v.prev() })
     }
 }
 
@@ -437,5 +534,37 @@ mod tests {
         assert!(!r!(!10..1).contains(1));
         assert!(!r!(!10..1).contains(10));
         assert!(!r!(!10..1).contains(11));
+    }
+    
+    #[test]
+    fn test_avoid() {
+        assert_eq!(r!(..).avoid(15, true), None);
+        assert_eq!(r!(..).avoid(15, false), None);
+        assert_eq!(r!(1..10).avoid(15, true), Some(15));
+        assert_eq!(r!(1..10).avoid(15, false), Some(15));
+        assert_eq!(r!(1..10).avoid(5, true), Some(10));
+        assert_eq!(r!(1..10).avoid(5, false), Some(0));
+        assert_eq!(r!(!1..10).avoid(5, false), Some(1));
+        assert_eq!(r!(!1..).avoid(5, false), Some(1));
+        assert_eq!(r!(1..).avoid(5, false), Some(0));
+        assert_eq!(r!(1..).avoid(5, true), None);
+        assert_eq!(r!(!1..).avoid(5, true), None);
+        assert_eq!(r!(..10).avoid(5, false), None);
+        assert_eq!(r!(..=10).avoid(5, false), None);
+        assert_eq!(r!(..10).avoid(5, true), Some(10));
+        assert_eq!(r!(..=10).avoid(5, true), Some(11));
+
+        assert_eq!(r!(!1..10).avoid(15, false), Some(15));
+        assert_eq!(r!(!1..10).avoid(15, true), Some(15));
+        assert_eq!(r!(1..=10).avoid(15, false), Some(15));
+        assert_eq!(r!(1..=10).avoid(15, true), Some(15));
+        assert_eq!(r!(..=10).avoid(15, true), Some(15));
+        assert_eq!(r!(..10).avoid(15, true), Some(15));
+        assert_eq!(r!(..=10).avoid(15, false), Some(15));
+        assert_eq!(r!(..10).avoid(15, false), Some(15));
+        assert_eq!(r!(1..).avoid(-15, true), Some(-15));
+        assert_eq!(r!(!1..).avoid(-15, true), Some(-15));
+        assert_eq!(r!(1..).avoid(-15, false), Some(-15));
+        assert_eq!(r!(!1..).avoid(-15, false), Some(-15));
     }
 }

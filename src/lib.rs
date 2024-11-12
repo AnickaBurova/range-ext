@@ -39,6 +39,8 @@ pub use range_interval::*;
 pub mod binary_result;
 pub use binary_result::*;
 
+pub mod successor;
+
 
 pub mod subtraction;
 
