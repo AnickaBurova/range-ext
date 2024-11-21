@@ -84,6 +84,25 @@ impl<T> RangeInterval<T> {
     pub fn into<F: From<T>>(self) -> RangeInterval<F> {
         RangeInterval { reverse: self.reverse, start: into_bound(self.start), end: into_bound(self.end) }
     }
+    
+    /// Apply function to both ends of the range mapping the range in to different type
+    pub fn map<R, F: Fn(&T) -> R>(&self, f: F) -> RangeInterval<R> {
+        let start = match &self.start {
+            Bound::Included(a) => {Bound::Included(f(a))}
+            Bound::Excluded(a) => {Bound::Excluded(f(a))}
+            Bound::Unbounded => { Bound::Unbounded }
+        };
+        let end = match &self.end {
+            Bound::Included(a) => {Bound::Included(f(a))}
+            Bound::Excluded(a) => {Bound::Excluded(f(a))}
+            Bound::Unbounded => { Bound::Unbounded }
+        };
+        RangeInterval {
+            start,
+            end,
+            reverse: self.reverse,
+        }
+    }
 }
 
 impl<T: Copy> RangeInterval<T> {
@@ -136,6 +155,7 @@ impl<T: PartialOrd> RangeInterval<T> {
             _ => false,
         }
     }
+    
     /// Test if a value is contained in the range
     pub fn contains(&self, value: T) -> bool {
         match (&self.start, &self.end) {
@@ -605,5 +625,14 @@ mod tests {
         assert!(r!(1..1).is_empty());
         assert!(r!(!1..1).is_empty());
         assert!(r!(!1..=1).is_empty());
+    }
+    
+    #[test]
+    fn test_map() {
+        assert_eq!(r!(1..10).map(|v| 1.0 + (*v as f64)), r!(2.0 .. 11.0));
+        assert_eq!(r!(1..=10).map(|v| 1.0 + (*v as f64)), r!(2.0 ..= 11.0));
+        assert_eq!(r!(!1..=10).map(|v| 1.0 + (*v as f64)), r!(!2.0 ..=11.0));
+        assert_eq!(r!(!1..10).map(|v| 1.0 + (*v as f64)), r!(!2.0 ..11.0));
+        assert_eq!(r!(1..).map(|v| 1.0 + (*v as f64)), r!(2.0 ..));
     }
 }
