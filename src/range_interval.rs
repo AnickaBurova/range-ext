@@ -1,4 +1,4 @@
-//! Unified structure for representing ranges and intervals.
+///! Unified structure for representing ranges and intervals.
 
 use std::fmt::{Display, Formatter};
 use std::ops::{Bound, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
@@ -102,6 +102,7 @@ impl<T: Copy> RangeInterval<T> {
             },
         }
     }
+
 }
 
 
@@ -125,6 +126,16 @@ pub enum RangeType {
 
 
 impl<T: PartialOrd> RangeInterval<T> {
+    /// Test if the range is not empty
+    pub fn is_empty(&self) -> bool {
+        match (&self.start, &self.end) {
+            // it can only be empty if the start is equal to end, and at least one of the is excluded
+            (Bound::Included(a), Bound::Excluded(b)) => a==b, // empty if the included is also excluded (!)
+            (Bound::Excluded(a), Bound::Included(b)) => a==b,
+            (Bound::Excluded(a), Bound::Excluded(b)) => a==b,
+            _ => false,
+        }
+    }
     /// Test if a value is contained in the range
     pub fn contains(&self, value: T) -> bool {
         match (&self.start, &self.end) {
@@ -580,5 +591,19 @@ mod tests {
         assert_eq!(r!(!1..).avoid(-15, true), Some(-15));
         assert_eq!(r!(1..).avoid(-15, false), Some(-15));
         assert_eq!(r!(!1..).avoid(-15, false), Some(-15));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        assert!(!r!(1..).is_empty());
+        assert!(!r!(..1).is_empty());
+        assert!(!r!(1..10).is_empty());
+        assert!(!r!(!1..10).is_empty());
+        assert!(!r!(!1..=10).is_empty());
+        assert!(!r!(1..=10).is_empty());
+        assert!(!r!(1..=1).is_empty());
+        assert!(r!(1..1).is_empty());
+        assert!(r!(!1..1).is_empty());
+        assert!(r!(!1..=1).is_empty());
     }
 }

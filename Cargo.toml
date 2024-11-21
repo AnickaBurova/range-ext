@@ -1,6 +1,6 @@
 [package]
 name = "range-ext"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["anicka.burova@gmail.com"]
 edition = "2018"
 description = "Range intersection"
